@@ -8,7 +8,7 @@ type View = "BOOT" | "DRIVE_PICK" | "UNLOCK" | "INIT" | "DASHBOARD" | "ADD" | "D
 
 // ─── Design tokens (screenshot-faithful) ──────────────────────────────────────
 const C = {
-  hex:    "#34d399", // mint green — the ⬢ icon color
+  hex:    "#e2e8f0", // mint green — the ⬢ icon color
   text:   "#e2e8f0", // primary text
   dim:    "#4b5563", // dim text / pending items
   err:    "#f87171", // error red
@@ -199,7 +199,7 @@ const Init = ({ onInit, vaultPath }: { onInit: (pw: string, h: string) => Promis
       <Text color={C.dim} italic>  Running initialization to establish secure context.</Text>
       <Box marginTop={1} />
 
-      <Hex title="Working on 3 to-dos" />
+      <Hex title="Create a password" />
       <Item state={states(0)} label="Set password" />
       <Item state={states(1)} label="Confirm password" />
       <Item state={states(2)} label="Set hint" />
