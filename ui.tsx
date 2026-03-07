@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Box, Text, useApp, useInput } from "ink";
 import SelectInput from "ink-select-input";
 import clipboardy from "clipboardy";
-import { vault, detectDrives, type DriveInfo } from "./crypto";
+import { vault, detectDrives, loadLastVaultPath, type DriveInfo } from "./crypto";
 
 type View = "BOOT" | "DRIVE_PICK" | "UNLOCK" | "INIT" | "DASHBOARD" | "ADD" | "DETAILS";
 
@@ -351,7 +351,21 @@ export default function App() {
   const [vaultPath, setVaultPath] = useState("");
   const [hint,      setHint]      = useState<string | undefined>();
 
-  useEffect(() => { detectDrives().then(() => setView("DRIVE_PICK")); }, []);
+  useEffect(() => {
+    (async () => {
+      const last = await loadLastVaultPath();
+      if (last) {
+        // Restore the known vault dir directly from the saved path
+        const dir = last.replace(/\/[^\/]+$/, ""); // strip filename
+        vault.setVaultDir(dir);
+        setVaultPath(vault.getVaultPath());
+        setView("UNLOCK");
+      } else {
+        await detectDrives();
+        setView("DRIVE_PICK");
+      }
+    })();
+  }, []);
 
   const pickDrive = async (d: DriveInfo) => {
     vault.setVaultDir(d.path); setVaultPath(vault.getVaultPath());

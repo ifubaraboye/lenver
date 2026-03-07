@@ -6,6 +6,25 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const VAULT_FILENAME = ".vault.enc";
+const CONFIG_DIR = path.join(process.env.HOME ?? "~", ".config", "envvault");
+const CONFIG_FILE = path.join(CONFIG_DIR, "last-vault");
+
+async function saveLastVaultPath(p: string) {
+  try {
+    await fs.mkdir(CONFIG_DIR, { recursive: true });
+    await fs.writeFile(CONFIG_FILE, p, "utf8");
+  } catch {}
+}
+
+export async function loadLastVaultPath(): Promise<string | null> {
+  try {
+    const p = (await fs.readFile(CONFIG_FILE, "utf8")).trim();
+    await fs.access(p); // only return if the vault file still exists
+    return p;
+  } catch {
+    return null;
+  }
+}
 const ALGO = "aes-256-gcm";
 const MAGIC = Buffer.from("EVLT");
 const SCRYPT_OPTS = { N: 131072, r: 8, p: 1, maxmem: 1024 * 1024 * 1024 };
@@ -178,6 +197,7 @@ export async function detectDrives(): Promise<DriveInfo[]> {
 
 export class VaultManager {
   private masterKey: Buffer | null = null;
+  private salt: Buffer | null = null;
   public data: VaultData | null = null;
   private vaultPath: string;
 
@@ -188,6 +208,7 @@ export class VaultManager {
 
   setVaultDir(dir: string) {
     this.vaultPath = path.join(dir, VAULT_FILENAME);
+    saveLastVaultPath(this.vaultPath);
   }
 
   getVaultPath() {
@@ -207,10 +228,10 @@ export class VaultManager {
   }
 
   async init(password: string, hint = "") {
-    const salt = crypto.randomBytes(32);
-    this.masterKey = await this.deriveKey(password, salt);
+    this.salt = crypto.randomBytes(32);
+    this.masterKey = await this.deriveKey(password, this.salt);
     this.data = { __meta__: { version: 1, hint } };
-    await this.save(salt);
+    await this.save();
   }
 
   async unlock(password: string): Promise<boolean> {
@@ -231,15 +252,16 @@ export class VaultManager {
         Buffer.concat([dec.update(text), dec.final()]).toString("utf8")
       );
       this.masterKey = key;
+      this.salt = salt;
       return true;
     } catch {
       return false;
     }
   }
 
-  async save(existingSalt?: Buffer) {
-    if (!this.masterKey || !this.data) throw new Error("Vault not unlocked");
-    const salt = existingSalt || crypto.randomBytes(32);
+  async save() {
+    if (!this.masterKey || !this.data || !this.salt) throw new Error("Vault not unlocked");
+    const salt = this.salt;
     const iv = crypto.randomBytes(12);
     const cipher = crypto.createCipheriv(ALGO, this.masterKey, iv);
     const enc = Buffer.concat([cipher.update(JSON.stringify(this.data), "utf8"), cipher.final()]);
