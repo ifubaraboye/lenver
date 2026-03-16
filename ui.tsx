@@ -16,7 +16,6 @@ const C = {
   reveal: "#67e8f9", // revealed secret cyan
 };
 
-// ─── ⬢ Section header — padded to feel large ─────────────────────────────────
 const Hex = ({ title, sub }: { title: string; sub?: string }) => (
   <Box flexDirection="column" marginTop={1} marginBottom={1}>
     <Box>
@@ -42,12 +41,6 @@ const Item = ({ state, label }: { state: "done" | "active" | "pending"; label: s
         <Text color={C.hex} bold>{"    ▣   "}</Text>
         <Text color={C.text} bold>{label}</Text>
       </Box>
-    );
-  return (
-    <Box>
-      <Text color={C.dim}>{"    ☐   "}</Text>
-      <Text color={C.dim}>{label}</Text>
-    </Box>
   );
 };
 
@@ -97,13 +90,9 @@ const Input = ({
 };
 
 // ─── Footer ───────────────────────────────────────────────────────────────────
-const Footer = ({ left, right }: { left: string; right?: string }) => (
-  <Box marginTop={1} flexDirection="column">
-    <Text color={C.dim}>
-      {left}
-      {right ? <Text> · {right}</Text> : null}
-    </Text>
-    <Text color={C.dim}>/ for commands · ↓/↑ to navigate</Text>
+const Footer = () => (
+  <Box marginTop={1} paddingLeft={2}>
+    <Text color={C.dim}>↓/↑ to navigate</Text>
   </Box>
 );
 
@@ -137,7 +126,7 @@ const DrivePick = ({ onPick }: { onPick: (d: DriveInfo) => void }) => {
         itemComponent={Option}
         indicatorComponent={() => <Text />}
       />
-      <Footer left="LVR-1 · Drive Selection · Local Compute" />
+      <Footer />
     </Box>
   );
 };
@@ -160,7 +149,7 @@ const Unlock = ({ onUnlock, hint, vaultPath }: {
 
   return (
     <Box flexDirection="column">
-      <FilePath path={`vol://${vaultPath}`} />
+      <FilePath path="lenver//" />
       <Text color={C.dim} italic>  Decrypting storage to ensure secure memory access.</Text>
       <Box marginTop={1} />
 
@@ -169,7 +158,7 @@ const Unlock = ({ onUnlock, hint, vaultPath }: {
       {error && <Text color={C.err} >{"  "}Decryption failed — bad password.</Text>}
 
       <Input value={pw} onChange={setPw} placeholder="Enter master password" mask focus onSubmit={submit} />
-      <Footer left="LVR-1 · Auth Phase · Local Compute" />
+      <Footer />
     </Box>
   );
 };
@@ -195,7 +184,7 @@ const Init = ({ onInit, vaultPath }: { onInit: (pw: string, h: string) => Promis
 
   return (
     <Box flexDirection="column">
-      <FilePath path={`vol://${vaultPath}`} />
+      <FilePath path="lenver//" />
       <Text color={C.dim} italic>  Running initialization to establish secure context.</Text>
       <Box marginTop={1} />
 
@@ -211,7 +200,7 @@ const Init = ({ onInit, vaultPath }: { onInit: (pw: string, h: string) => Promis
       {step === "confirm" && <Input value={confirm}  onChange={setConfirm} placeholder="Confirm password"  mask focus onSubmit={submit} />}
       {step === "hint"    && <Input value={hint}     onChange={setHint}    placeholder="Add hint (optional)" focus onSubmit={submit} />}
 
-      <Footer left="LVR-1 · Initialization · Local Compute" />
+      <Footer />
     </Box>
   );
 };
@@ -229,7 +218,7 @@ const Dashboard = ({ vaultPath, onSelect, onAdd, onChangeDrive, onExit }: {
 
   return (
     <Box flexDirection="column">
-      <FilePath path={`vol://${vaultPath}`} />
+      <FilePath path="lenver//" />
       <Text color={C.dim} italic>  Listening for vault modifications and commands.</Text>
       <Box marginTop={1} />
 
@@ -245,7 +234,7 @@ const Dashboard = ({ vaultPath, onSelect, onAdd, onChangeDrive, onExit }: {
           else onSelect(item.value);
         }}
       />
-      <Footer left={`LVR-1 · ${secrets.length} secret${secrets.length !== 1 ? "s" : ""} · Local Compute`} />
+      <Footer />
     </Box>
   );
 };
@@ -264,7 +253,7 @@ const Details = ({ keyName, vaultPath, onBack }: { keyName: string; vaultPath: s
 
   return (
     <Box flexDirection="column">
-      <FilePath path={`vol://${vaultPath}`} tag={keyName} />
+      <FilePath path={`lenver//${keyName}`} />
       <Box marginTop={1} />
 
       <Hex title={`Inspecting ${keyName}`} />
@@ -294,7 +283,7 @@ const Details = ({ keyName, vaultPath, onBack }: { keyName: string; vaultPath: s
           }
         }}
       />
-      <Footer left="LVR-1 · Inspection · Local Compute" />
+      <Footer />
     </Box>
   );
 };
@@ -324,7 +313,7 @@ const Add = ({ vaultPath, onDone, onCancel }: { vaultPath: string; onDone: () =>
 
   return (
     <Box flexDirection="column">
-      <FilePath path={`vol://${vaultPath}`} tag="new" />
+      <FilePath path="lenver//new" />
       <Text color={C.dim} italic>  Running secret configuration.</Text>
       <Box marginTop={1} />
 
@@ -338,7 +327,7 @@ const Add = ({ vaultPath, onDone, onCancel }: { vaultPath: string; onDone: () =>
       {step === "value" && <Input value={value} onChange={setValue} placeholder="Secret value" mask focus />}
       {step === "note"  && <Input value={note}  onChange={setNote}  placeholder="Add note (optional)" focus />}
 
-      <Footer left="LVR-1 · Add Mode · Local Compute" right="esc to cancel" />
+      <Footer />
     </Box>
   );
 };
