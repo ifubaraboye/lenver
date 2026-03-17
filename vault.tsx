@@ -5,18 +5,26 @@ import { render } from "ink";
 import React from "react";
 import prompts from "prompts";
 import App from "./ui";
-import { vault, detectDrives } from "./crypto";
+import { vault, detectDrives, type DriveInfo, type UnlockFailureReason } from "./crypto";
 
 const program = new Command();
 
 program
-  .name("envvault")
+  .name("lenver")
   .description("Encrypted environment variable vault")
   .option("-e, --export", "Export keys to stdout (for eval)")
   .option("-d, --drive <path>", "Force vault directory")
   .parse();
 
 const opts = program.opts();
+
+const unlockFailureMessage: Record<UnlockFailureReason, string> = {
+  incorrect_password: "Incorrect password or failed authentication.",
+  invalid_format: "Vault file is not a valid lenver vault.",
+  corrupt_vault: "Vault file is truncated or corrupted.",
+  unsupported_version: "Vault version is not supported by this build.",
+  filesystem_error: "Unable to read the vault file from disk.",
+};
 
 async function main() {
   if (opts.drive) {
@@ -40,18 +48,18 @@ async function main() {
   }
 
   if (opts.export) {
-    let dir = opts.drive;
-
-    if (!dir) {
+    if (!opts.drive) {
       // Logic: if not provided, try to find the one drive that has a vault,
       // or ask user interactively if multiple exist.
       const drives = await detectDrives();
-      
+
       // Filter for drives that actually have a vault file
-      const vaultDrives = [];
-      for(const d of drives) {
-          vault.setVaultDir(d.path);
-          if(await vault.exists()) vaultDrives.push(d);
+      const vaultDrives: DriveInfo[] = [];
+      for (const drive of drives) {
+        vault.setVaultDir(drive.path);
+        if (await vault.exists()) {
+          vaultDrives.push(drive);
+        }
       }
 
       if (vaultDrives.length === 0) {
@@ -60,15 +68,24 @@ async function main() {
       }
 
       if (vaultDrives.length === 1) {
-        vault.setVaultDir(vaultDrives[0].path);
+        const [selectedDrive] = vaultDrives;
+        if (!selectedDrive) {
+          console.error("❌ Vault drive detection failed.");
+          process.exit(1);
+        }
+
+        vault.setVaultDir(selectedDrive.path);
       } else {
         const { dir: selected } = await prompts({
           type: "select",
           name: "dir",
           message: "Select vault location",
-          choices: vaultDrives.map(d => ({ title: d.label, value: d.path })),
+          choices: vaultDrives.map((drive) => ({ title: drive.label, value: drive.path })),
         });
-        if (!selected) process.exit(1);
+        if (!selected) {
+          process.exit(1);
+        }
+
         vault.setVaultDir(selected);
       }
     }
@@ -87,9 +104,9 @@ async function main() {
 
     if (!pw) process.exit(1);
 
-    const ok = await vault.unlock(pw);
-    if (!ok) {
-      console.error("❌ Incorrect password.");
+    const result = await vault.unlock(pw);
+    if (!result.ok) {
+      console.error(`❌ ${unlockFailureMessage[result.reason]}`);
       process.exit(1);
     }
 
