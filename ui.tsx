@@ -32,7 +32,7 @@ const Item = ({ state, label }: { state: ChecklistState; label: string }) => {
     case "done":
       return (
         <Box>
-          <Text color={C.dim}>{"    ☒   "}</Text>
+          <Text color={C.dim}>{"    ☐   "}</Text>
           <Text color={C.dim}>{label}</Text>
         </Box>
       );
@@ -760,8 +760,10 @@ export default function App() {
         const vaultDir = lastVaultPath.replace(/\/[^/]+$/, "");
         vault.setVaultDir(vaultDir);
         setVaultPath(vault.getVaultPath());
-        setView("UNLOCK");
-        return;
+        if (await vault.exists()) {
+          setView("UNLOCK");
+          return;
+        }
       }
 
       setView("DRIVE_PICK");
