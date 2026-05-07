@@ -1,10 +1,6 @@
 # lenver
 
-> An interactive CLI for scanning, organizing, and reviewing your `.env` variables — without leaking secrets.
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/oribi/lenver/main/assets/demo.gif" alt="lenver demo" width="600">
-</p>
+> An interactive CLI for scanning, organizing, and reviewing your `.env*` variables — without leaking secrets.
 
 ## What is lenver?
 
@@ -18,7 +14,7 @@ It features a rich terminal UI built with [Ink](https://github.com/vadimdemedes/
 - **Sensitive-tier detection** — Production/staging env files are flagged; values are hidden by default
 - **Values hidden by default** — All values render as `••••••••` unless you explicitly use `--show-values`
 - **Interactive project selector** — Run `lenver` with no arguments to browse all projects
-- **Keyboard navigation** — Arrow keys to move, Enter to select, `D` to delete
+- **Keyboard navigation** — Arrow keys to move, Enter to select, `D` to delete, `Q` to exit
 - **Doctor face mascot** — A happy/neutral/critical face that reacts to your project's health
 - **No code scanning noise** — Only scans `.env*` files, not your entire codebase
 - **Local JSON store** — Everything lives in `~/.config/lenver/projects/`
@@ -50,43 +46,21 @@ lenver scan
 
 You'll see the doctor face appear as `.env` files are scanned live. Press Enter when done, then name your project.
 
-```
-  ┌────────────────────────────────────────┐
-   ┌───────────┐  my-project
-   │  ◠   ◠  │    5 / 5 vars
-   │    ▽    │    ██████████████████████████████
-   └───────────┘  ✓ all clean
-  └────────────────────────────────────────┘
-
-  ✓ DATABASE_URL = ••••••••     .env, .env.local
-  ✓ API_KEY = ••••••••          .env
-  ~ SECRET_TOKEN = [sensitive]  .env.production
-
-Press Enter to save...
-```
-
 ### Browse all projects
 
 ```bash
 lenver
 ```
 
-Opens an interactive project selector:
+Opens an interactive project selector with arrow-key navigation.
 
+### Pull variables into a new directory
+
+```bash
+lenver init
 ```
-  ┌────────────────────────────────────────┐
-   ┌───────────┐  lenver
-   │  ×   ×  │    3 projects · 12 vars
-   │    ▽    │    1 unresolved
-   └───────────┘
-  └────────────────────────────────────────┘
 
-  › ✗ my-project  (5 vars, 1 unresolved)  5/6/2026
-    ✓ api          (4 vars) 5/5/2026
-    ✓ dashboard    (3 vars) 5/4/2026
-
-  ↑↓ navigate · Enter to select · D to delete
-```
+Select a saved project and write its variables back to `.env*` files in the current directory.
 
 ### List current project
 
@@ -99,9 +73,6 @@ lenver list --show-values  # show actual values
 
 ```bash
 lenver delete my-project
-# or
-lenver
-# then press D on the selected project
 ```
 
 ## Commands
@@ -110,6 +81,7 @@ lenver
 |---|---|
 | `lenver` | Open interactive project selector |
 | `lenver scan` | Scan `.env*` files in current directory |
+| `lenver init` | Pull variables from a saved project into this directory |
 | `lenver list` | Show variables for current project |
 | `lenver delete <name>` | Delete a project by name or ID |
 
@@ -160,7 +132,6 @@ All data lives locally in `~/.config/lenver/projects/<id>.json`:
 
 Values from sensitive-tier files (`.env.production`, `.env.staging`) are stored as `null` by default. Use `--include-sensitive` to override.
 
-
 ## Tech Stack
 
 - **Runtime**: Bun / Node.js
@@ -172,108 +143,3 @@ Values from sensitive-tier files (`.env.production`, `.env.staging`) are stored 
 ## License
 
 MIT
-## Architecture:
-
-### Directory Structure:
-
-```
-lenver/
-├── src/
-│   ├── cli.tsx              # Entry point (meow + React renderer)
-│   ├── commands/
-│   │   ├── scan.tsx         # Scan command with live UI + doctor face
-│   │   ├── list.tsx         # List current project's variables
-│   │   ├── delete.tsx       # Delete project by name or ID
-│   │   └── default.tsx      # Interactive project selector (no args)
-│   ├── scanner/
-│   │   ├── stream.ts        # Async generator — yields scan events in real-time
-│   │   ├── dotenv.ts        # Parse .env* files, detect sensitive/example
-│   │   ├── code.ts          # Regex scan for process.env / import.meta.env / etc.
-│   │   └── index.ts         # Legacy orchestrator (batch mode)
-│   ├── store/
-│   │   ├── index.ts         # JSON read / write / delete projects
-│   │   └── project.ts       # Project ID: git remote URL hash → fallback to cwd hash
-│   └── ui/
-│       ├── DoctorFace.tsx   # Mood mascot: ◠◠ / •• / ×× based on health
-│       ├── ProjectView.tsx  # Variable list with hidden values + status icons
-│       ├── FramedBox.tsx    # Bordered container (┌─┐│└┘)
-│       ├── ScoreBar.tsx     # 50-char block progress bar █░
-│       ├── AnimatedList.tsx  # Staggered reveal (40ms per item)
-│       ├── ConfirmPrompt.tsx # One-line Y/n confirmation
-│       └── ScoreHeader.tsx  # Legacy header (replaced by DoctorFace)
-├── dist/
-│   └── cli.js               # Compiled output (bun build)
-├── package.json
-├── tsconfig.json
-└── README.md
-```
-
-### Data Flow:
-
-```
-User runs: lenver scan
-    │
-    ▼
-cli.tsx (meow parses args)
-    │
-    ▼
-ScanCommand (Ink component)
-    │
-    ├── ConfirmPrompt ("Scan env files in /path? [Y/n]")
-    │
-    ▼ (user presses Y)
-    │
-    ▼
-scanStream() async generator
-    │
-    ├── yield { type: "file", file }      ← progress bar updates
-    ├── yield { type: "var", var }        ← animated list reveals
-    └── yield { type: "done", totalFiles }
-    │
-    ▼
-mergeScanIntoSnapshot() → writeProject()
-    │
-    ▼
-ProjectView (doctor face + variable list + naming prompt)
-```
-
-### Storage Schema:
-
-Projects stored at `~/.config/lenver/projects/<sha256-id>.json`:
-
-```json
-{
-  "id": "0bdc62c1ba8301ac",
-  "name": "dinexpress",
-  "cwd": "/home/oribi/Desktop/dev/dinexpress",
-  "lastScanned": "2026-05-06T10:59:31.825Z",
-  "vars": {
-    "DATABASE_URL": {
-      "value": "postgres://localhost:5432/db",
-      "sources": [".env", ".env.local"],
-      "referencedIn": ["src/config.ts"],
-      "isSensitive": false
-    },
-    "SECRET_TOKEN": {
-      "value": null,
-      "sources": [".env.production"],
-      "referencedIn": [],
-      "isSensitive": true
-    }
-  },
-  "unresolvedRefs": ["CLERK_JWT_ISSUER_DOMAIN"]
-}
-```
-
-Values from sensitive-tier files (`.env.production`, `.env.staging`) are stored as `null` by default. Use `--include-sensitive` to override.
-
-### Key Design Decisions:
-
-| Decision | Rationale |
-|---|---|
-| **Async generator** (`scanStream`) | Enables real-time UI updates as files are parsed |
-| **Values hidden by default** | `••••••` shown instead of secrets; opt-in via `--show-values` |
-| **Sensitive-tier detection** | `.env.production`, `.env.staging` values → `null` unless `--include-sensitive` |
-| **Git remote → SHA-256** | Stable project ID that survives directory moves |
-| **No database** | Plain JSON files in `~/.config/lenver/` — zero dependencies |
-| **Ink + React** | Rich terminal UI with doctor face, progress bars, keyboard nav |
