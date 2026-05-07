@@ -44,6 +44,8 @@ export function DefaultCommand() {
       setSelectedProject(projects[selectedIndex]);
     } else if (input.toLowerCase() === "d") {
       setConfirmDelete(true);
+    } else if (input.toLowerCase() === "q" || key.escape) {
+      process.exit(0);
     }
   });
 
@@ -114,7 +116,7 @@ export function DefaultCommand() {
         })}
       </Box>
 
-      <Text dimColor>  ↑↓ navigate · Enter to select · D to delete</Text>
+      <Text dimColor>  ↑↓ navigate · Enter to select · D to delete · Q to exit</Text>
     </Box>
   );
 }

@@ -55807,7 +55807,7 @@ function ConfirmPrompt({ message, onConfirm }) {
     if (lower === "y") {
       setAnswer("yes");
       onConfirm(true);
-    } else if (lower === "n") {
+    } else if (lower === "n" || lower === "q" || key.escape) {
       setAnswer("no");
       onConfirm(false);
     }
@@ -56146,8 +56146,18 @@ function ScanCommand({ includeSensitive = false }) {
   use_input_default((input, key) => {
     if (phase === "review" && key.return) {
       setPhase("naming");
+    } else if (phase === "review" && (input.toLowerCase() === "q" || key.escape)) {
+      setPhase("cancelled");
+    } else if (phase === "naming" && (input.toLowerCase() === "q" || key.escape)) {
+      setPhase("cancelled");
     }
   });
+  import_react37.default.useEffect(() => {
+    if (phase === "cancelled") {
+      const timer = setTimeout(() => process.exit(0), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [phase]);
   if (error) {
     return /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(Box_default, {
       children: /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(Text, {
@@ -56278,7 +56288,7 @@ function ScanCommand({ includeSensitive = false }) {
           marginTop: 1,
           children: /* @__PURE__ */ jsx_dev_runtime6.jsxDEV(Text, {
             dimColor: true,
-            children: "Press Enter to save..."
+            children: "Press Enter to save, or Q to exit"
           }, undefined, false, undefined, this)
         }, undefined, false, undefined, this)
       ]
@@ -56454,14 +56464,391 @@ function DeleteCommand() {
   }, undefined, false, undefined, this);
 }
 
-// src/commands/default.tsx
+// src/commands/init.tsx
 var import_react39 = __toESM(require_react(), 1);
 var jsx_dev_runtime9 = __toESM(require_jsx_dev_runtime(), 1);
-function DefaultCommand() {
-  const [projects, setProjects] = import_react39.useState(listProjects());
+import { writeFileSync as writeFileSync2, existsSync as existsSync3 } from "node:fs";
+import { join as join3 } from "node:path";
+function InitCommand() {
+  const [projects] = import_react39.useState(listProjects());
   const [selectedIndex, setSelectedIndex] = import_react39.useState(0);
   const [selectedProject, setSelectedProject] = import_react39.useState(null);
-  const [confirmDelete, setConfirmDelete] = import_react39.useState(false);
+  const [phase, setPhase] = import_react39.useState("select");
+  const [fileGroups, setFileGroups] = import_react39.useState([]);
+  use_input_default((input, key) => {
+    if (phase === "select") {
+      if (key.upArrow) {
+        setSelectedIndex((i) => Math.max(0, i - 1));
+      } else if (key.downArrow) {
+        setSelectedIndex((i) => Math.min(projects.length - 1, i + 1));
+      } else if (key.return) {
+        const project = projects[selectedIndex];
+        if (project) {
+          setSelectedProject(project);
+          const groups = buildFileGroups(project);
+          setFileGroups(groups);
+          setPhase("review");
+        }
+      } else if (input.toLowerCase() === "q" || key.escape) {
+        process.exit(0);
+      }
+      return;
+    }
+  });
+  import_react39.default.useEffect(() => {
+    if (phase === "cancelled") {
+      const timer = setTimeout(() => process.exit(0), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [phase]);
+  function buildFileGroups(project) {
+    const cwd2 = process.cwd();
+    const groups = new Map;
+    for (const [key, entry] of Object.entries(project.vars)) {
+      for (const source of entry.sources) {
+        const filename = source.replace(/^.*[\\/]/, "");
+        if (!groups.has(filename)) {
+          groups.set(filename, []);
+        }
+        groups.get(filename).push({ key, entry });
+      }
+    }
+    return Array.from(groups.entries()).map(([filename, vars]) => ({
+      filename,
+      vars,
+      willOverwrite: existsSync3(join3(cwd2, filename)),
+      written: 0,
+      omitted: 0
+    }));
+  }
+  function writeFiles(project, groups) {
+    const cwd2 = process.cwd();
+    const updatedGroups = [];
+    for (const group of groups) {
+      const targetPath = join3(cwd2, group.filename);
+      const lines = [];
+      let written = 0;
+      let omitted = 0;
+      lines.push(`# Pulled from lenver project: ${project.name}`);
+      lines.push(`# Source: ${project.cwd}`);
+      lines.push(`# Last scanned: ${project.lastScanned}`);
+      lines.push("");
+      for (const { key, entry } of group.vars) {
+        if (entry.isSensitive) {
+          lines.push(`# ${key}=`);
+          lines.push(`# ^ sensitive value omitted — set manually`);
+          omitted++;
+        } else if (entry.value === null) {
+          lines.push(`# ${key}=`);
+          lines.push(`# ^ value not available in store`);
+          omitted++;
+        } else {
+          lines.push(`${key}=${entry.value}`);
+          written++;
+        }
+        lines.push("");
+      }
+      writeFileSync2(targetPath, lines.join(`
+`), "utf-8");
+      updatedGroups.push({ ...group, written, omitted });
+    }
+    setFileGroups(updatedGroups);
+  }
+  if (projects.length === 0) {
+    return /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Box_default, {
+      flexDirection: "column",
+      gap: 1,
+      children: [
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(FramedBox, {
+          width: 40,
+          children: /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Box_default, {
+            flexDirection: "row",
+            gap: 2,
+            children: [
+              /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(DoctorFace, {
+                mood: "neutral"
+              }, undefined, false, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Box_default, {
+                flexDirection: "column",
+                justifyContent: "center",
+                children: [
+                  /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Text, {
+                    children: "lenver init"
+                  }, undefined, false, undefined, this),
+                  /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Text, {
+                    dimColor: true,
+                    children: "No saved projects"
+                  }, undefined, false, undefined, this)
+                ]
+              }, undefined, true, undefined, this)
+            ]
+          }, undefined, true, undefined, this)
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Text, {
+          dimColor: true,
+          children: "Run `lenver scan` in a project first to save its variables."
+        }, undefined, false, undefined, this)
+      ]
+    }, undefined, true, undefined, this);
+  }
+  if (phase === "select") {
+    return /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Box_default, {
+      flexDirection: "column",
+      gap: 1,
+      children: [
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(FramedBox, {
+          width: 40,
+          children: /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Box_default, {
+            flexDirection: "row",
+            gap: 2,
+            children: [
+              /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(DoctorFace, {
+                mood: "happy"
+              }, undefined, false, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Box_default, {
+                flexDirection: "column",
+                justifyContent: "center",
+                children: [
+                  /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Text, {
+                    children: "lenver init"
+                  }, undefined, false, undefined, this),
+                  /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Text, {
+                    dimColor: true,
+                    children: "Select a project to pull"
+                  }, undefined, false, undefined, this)
+                ]
+              }, undefined, true, undefined, this)
+            ]
+          }, undefined, true, undefined, this)
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Box_default, {
+          flexDirection: "column",
+          children: projects.map((p, i) => {
+            const isSelected = i === selectedIndex;
+            const vars = Object.keys(p.vars).length;
+            return /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Box_default, {
+              flexDirection: "row",
+              children: [
+                /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Text, {
+                  color: isSelected ? "cyan" : undefined,
+                  children: [
+                    isSelected ? "› " : "  ",
+                    p.name
+                  ]
+                }, undefined, true, undefined, this),
+                /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Text, {
+                  dimColor: true,
+                  children: [
+                    " ",
+                    "(",
+                    vars,
+                    " vars) ",
+                    p.cwd.replace(process.env.HOME || "/home", "~")
+                  ]
+                }, undefined, true, undefined, this)
+              ]
+            }, p.id, true, undefined, this);
+          })
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Text, {
+          dimColor: true,
+          children: "  ↑↓ navigate · Enter to select · Q to exit"
+        }, undefined, false, undefined, this)
+      ]
+    }, undefined, true, undefined, this);
+  }
+  if (phase === "review") {
+    const project = selectedProject;
+    const totalVars = Object.keys(project.vars).length;
+    const sensitiveVars = Object.entries(project.vars).filter(([_, v]) => v.isSensitive).length;
+    const anyOverwrite = fileGroups.some((g) => g.willOverwrite);
+    return /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Box_default, {
+      flexDirection: "column",
+      gap: 1,
+      children: [
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(FramedBox, {
+          width: 40,
+          children: /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Box_default, {
+            flexDirection: "row",
+            gap: 2,
+            children: [
+              /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(DoctorFace, {
+                mood: sensitiveVars > 0 ? "neutral" : "happy"
+              }, undefined, false, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Box_default, {
+                flexDirection: "column",
+                justifyContent: "center",
+                children: [
+                  /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Text, {
+                    children: project.name
+                  }, undefined, false, undefined, this),
+                  /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Text, {
+                    dimColor: true,
+                    children: [
+                      totalVars,
+                      " vars · ",
+                      fileGroups.length,
+                      " files · ",
+                      sensitiveVars,
+                      " sensitive"
+                    ]
+                  }, undefined, true, undefined, this)
+                ]
+              }, undefined, true, undefined, this)
+            ]
+          }, undefined, true, undefined, this)
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Box_default, {
+          flexDirection: "column",
+          gap: 1,
+          children: fileGroups.map((group) => /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Box_default, {
+            flexDirection: "column",
+            children: [
+              /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Box_default, {
+                flexDirection: "row",
+                children: [
+                  /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Text, {
+                    color: group.willOverwrite ? "yellow" : "green",
+                    children: [
+                      group.willOverwrite ? "~" : "✓",
+                      " ",
+                      group.filename
+                    ]
+                  }, undefined, true, undefined, this),
+                  /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Text, {
+                    dimColor: true,
+                    children: [
+                      " ",
+                      "(",
+                      group.vars.length,
+                      " vars)",
+                      group.willOverwrite && " will overwrite"
+                    ]
+                  }, undefined, true, undefined, this)
+                ]
+              }, undefined, true, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Box_default, {
+                flexDirection: "column",
+                paddingLeft: 3,
+                children: group.vars.map(({ key, entry }) => /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Box_default, {
+                  flexDirection: "row",
+                  children: /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Text, {
+                    dimColor: true,
+                    children: [
+                      entry.isSensitive ? "~" : "✓",
+                      " ",
+                      key,
+                      " ",
+                      entry.isSensitive ? "[sensitive]" : entry.value === null ? "[null]" : "••••••"
+                    ]
+                  }, undefined, true, undefined, this)
+                }, key, false, undefined, this))
+              }, undefined, false, undefined, this)
+            ]
+          }, group.filename, true, undefined, this))
+        }, undefined, false, undefined, this),
+        anyOverwrite && /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Text, {
+          color: "yellow",
+          children: [
+            " ",
+            "Warning: some files already exist and will be overwritten."
+          ]
+        }, undefined, true, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(ConfirmPrompt, {
+          message: `Write to ${fileGroups.length} files?`,
+          onConfirm: (confirmed) => {
+            if (confirmed) {
+              writeFiles(project, fileGroups);
+              setPhase("done");
+            } else {
+              setPhase("cancelled");
+            }
+          }
+        }, undefined, false, undefined, this)
+      ]
+    }, undefined, true, undefined, this);
+  }
+  if (phase === "done") {
+    const totalWritten = fileGroups.reduce((sum, g) => sum + g.written, 0);
+    const totalOmitted = fileGroups.reduce((sum, g) => sum + g.omitted, 0);
+    return /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Box_default, {
+      flexDirection: "column",
+      gap: 1,
+      children: [
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(FramedBox, {
+          width: 40,
+          children: /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Box_default, {
+            flexDirection: "row",
+            gap: 2,
+            children: [
+              /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(DoctorFace, {
+                mood: "happy"
+              }, undefined, false, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Box_default, {
+                flexDirection: "column",
+                justifyContent: "center",
+                children: [
+                  /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Text, {
+                    children: "Done"
+                  }, undefined, false, undefined, this),
+                  /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Text, {
+                    dimColor: true,
+                    children: [
+                      totalWritten,
+                      " written · ",
+                      totalOmitted,
+                      " omitted · ",
+                      fileGroups.length,
+                      " files"
+                    ]
+                  }, undefined, true, undefined, this)
+                ]
+              }, undefined, true, undefined, this)
+            ]
+          }, undefined, true, undefined, this)
+        }, undefined, false, undefined, this),
+        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Box_default, {
+          flexDirection: "column",
+          children: fileGroups.map((group) => /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Box_default, {
+            flexDirection: "row",
+            children: [
+              /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Text, {
+                color: "green",
+                children: [
+                  "✓ ",
+                  group.filename
+                ]
+              }, undefined, true, undefined, this),
+              /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Text, {
+                dimColor: true,
+                children: [
+                  " ",
+                  group.written,
+                  " vars",
+                  group.omitted > 0 && ` · ${group.omitted} omitted`
+                ]
+              }, undefined, true, undefined, this)
+            ]
+          }, group.filename, true, undefined, this))
+        }, undefined, false, undefined, this)
+      ]
+    }, undefined, true, undefined, this);
+  }
+  return /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Box_default, {
+    children: /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Text, {
+      children: "Init cancelled."
+    }, undefined, false, undefined, this)
+  }, undefined, false, undefined, this);
+}
+
+// src/commands/default.tsx
+var import_react40 = __toESM(require_react(), 1);
+var jsx_dev_runtime10 = __toESM(require_jsx_dev_runtime(), 1);
+function DefaultCommand() {
+  const [projects, setProjects] = import_react40.useState(listProjects());
+  const [selectedIndex, setSelectedIndex] = import_react40.useState(0);
+  const [selectedProject, setSelectedProject] = import_react40.useState(null);
+  const [confirmDelete, setConfirmDelete] = import_react40.useState(false);
   use_input_default((input, key) => {
     if (selectedProject) {
       if (key.escape) {
@@ -56492,26 +56879,28 @@ function DefaultCommand() {
       setSelectedProject(projects[selectedIndex]);
     } else if (input.toLowerCase() === "d") {
       setConfirmDelete(true);
+    } else if (input.toLowerCase() === "q" || key.escape) {
+      process.exit(0);
     }
   });
   if (projects.length === 0) {
-    return /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Box_default, {
-      children: /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Text, {
+    return /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Box_default, {
+      children: /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Text, {
         dimColor: true,
         children: "No projects found. Run `lenver scan` in a project directory."
       }, undefined, false, undefined, this)
     }, undefined, false, undefined, this);
   }
   if (selectedProject) {
-    return /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Box_default, {
+    return /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Box_default, {
       flexDirection: "column",
       gap: 1,
       children: [
-        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Text, {
+        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Text, {
           dimColor: true,
           children: "Press Esc to go back"
         }, undefined, false, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(ProjectView, {
+        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(ProjectView, {
           snapshot: selectedProject
         }, undefined, false, undefined, this)
       ]
@@ -56519,11 +56908,11 @@ function DefaultCommand() {
   }
   if (confirmDelete) {
     const target = projects[selectedIndex];
-    return /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Box_default, {
+    return /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Box_default, {
       flexDirection: "column",
       gap: 1,
       children: [
-        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Text, {
+        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Text, {
           color: "red",
           children: [
             'Delete project "',
@@ -56531,7 +56920,7 @@ function DefaultCommand() {
             '"?'
           ]
         }, undefined, true, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Text, {
+        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Text, {
           dimColor: true,
           children: [
             "This will remove ",
@@ -56539,7 +56928,7 @@ function DefaultCommand() {
             " vars from storage."
           ]
         }, undefined, true, undefined, this),
-        /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Text, {
+        /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Text, {
           dimColor: true,
           children: "Press Y to confirm, N to cancel"
         }, undefined, false, undefined, this)
@@ -56548,27 +56937,27 @@ function DefaultCommand() {
   }
   const totalVars = projects.reduce((sum, p) => sum + Object.keys(p.vars).length, 0);
   const totalUnresolved = projects.reduce((sum, p) => sum + p.unresolvedRefs.length, 0);
-  return /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Box_default, {
+  return /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Box_default, {
     flexDirection: "column",
     gap: 1,
     children: [
-      /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(FramedBox, {
+      /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(FramedBox, {
         width: 40,
-        children: /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Box_default, {
+        children: /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Box_default, {
           flexDirection: "row",
           gap: 2,
           children: [
-            /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(DoctorFace, {
+            /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(DoctorFace, {
               mood: totalUnresolved > 0 ? "critical" : "happy"
             }, undefined, false, undefined, this),
-            /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Box_default, {
+            /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Box_default, {
               flexDirection: "column",
               justifyContent: "center",
               children: [
-                /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Text, {
+                /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Text, {
                   children: "lenver"
                 }, undefined, false, undefined, this),
-                /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Text, {
+                /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Text, {
                   dimColor: true,
                   children: [
                     projects.length,
@@ -56577,7 +56966,7 @@ function DefaultCommand() {
                     " vars"
                   ]
                 }, undefined, true, undefined, this),
-                totalUnresolved > 0 && /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Text, {
+                totalUnresolved > 0 && /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Text, {
                   color: "red",
                   children: [
                     totalUnresolved,
@@ -56589,16 +56978,16 @@ function DefaultCommand() {
           ]
         }, undefined, true, undefined, this)
       }, undefined, false, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Box_default, {
+      /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Box_default, {
         flexDirection: "column",
         children: projects.map((p, i) => {
           const isSelected = i === selectedIndex;
           const unresolved = p.unresolvedRefs.length;
           const vars = Object.keys(p.vars).length;
-          return /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Box_default, {
+          return /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Box_default, {
             flexDirection: "row",
             children: [
-              /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Text, {
+              /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Text, {
                 color: isSelected ? "cyan" : undefined,
                 children: [
                   isSelected ? "› " : "  ",
@@ -56607,7 +56996,7 @@ function DefaultCommand() {
                   p.name
                 ]
               }, undefined, true, undefined, this),
-              /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Text, {
+              /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Text, {
                 dimColor: true,
                 children: [
                   " ",
@@ -56624,16 +57013,16 @@ function DefaultCommand() {
           }, p.id, true, undefined, this);
         })
       }, undefined, false, undefined, this),
-      /* @__PURE__ */ jsx_dev_runtime9.jsxDEV(Text, {
+      /* @__PURE__ */ jsx_dev_runtime10.jsxDEV(Text, {
         dimColor: true,
-        children: "  ↑↓ navigate · Enter to select · D to delete"
+        children: "  ↑↓ navigate · Enter to select · D to delete · Q to exit"
       }, undefined, false, undefined, this)
     ]
   }, undefined, true, undefined, this);
 }
 
 // src/cli.tsx
-var jsx_dev_runtime10 = __toESM(require_jsx_dev_runtime(), 1);
+var jsx_dev_runtime11 = __toESM(require_jsx_dev_runtime(), 1);
 var cli = meow(`
   Usage
     $ lenver [command]
@@ -56641,6 +57030,7 @@ var cli = meow(`
   Commands
     scan     Scan project for env vars
     list     List stored env vars for this project
+    init     Pull variables from a saved project into this directory
     delete   Delete a project by name or ID
 
   Options
@@ -56662,21 +57052,24 @@ var cli = meow(`
 var [command] = cli.input;
 switch (command) {
   case "scan":
-    render_default(/* @__PURE__ */ jsx_dev_runtime10.jsxDEV(ScanCommand, {
+    render_default(/* @__PURE__ */ jsx_dev_runtime11.jsxDEV(ScanCommand, {
       includeSensitive: cli.flags.includeSensitive
     }, undefined, false, undefined, this));
     break;
   case "list":
-    render_default(/* @__PURE__ */ jsx_dev_runtime10.jsxDEV(ListCommand, {
+    render_default(/* @__PURE__ */ jsx_dev_runtime11.jsxDEV(ListCommand, {
       showValues: cli.flags.showValues
     }, undefined, false, undefined, this));
     break;
+  case "init":
+    render_default(/* @__PURE__ */ jsx_dev_runtime11.jsxDEV(InitCommand, {}, undefined, false, undefined, this));
+    break;
   case "delete":
-    render_default(/* @__PURE__ */ jsx_dev_runtime10.jsxDEV(DeleteCommand, {}, undefined, false, undefined, this));
+    render_default(/* @__PURE__ */ jsx_dev_runtime11.jsxDEV(DeleteCommand, {}, undefined, false, undefined, this));
     break;
   case undefined:
   case "":
-    render_default(/* @__PURE__ */ jsx_dev_runtime10.jsxDEV(DefaultCommand, {}, undefined, false, undefined, this));
+    render_default(/* @__PURE__ */ jsx_dev_runtime11.jsxDEV(DefaultCommand, {}, undefined, false, undefined, this));
     break;
   default:
     console.error(`Unknown command: ${command}`);

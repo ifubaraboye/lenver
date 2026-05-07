@@ -18,7 +18,7 @@ export function ConfirmPrompt({ message, onConfirm }: ConfirmPromptProps) {
     if (lower === "y") {
       setAnswer("yes");
       onConfirm(true);
-    } else if (lower === "n") {
+    } else if (lower === "n" || lower === "q" || key.escape) {
       setAnswer("no");
       onConfirm(false);
     }

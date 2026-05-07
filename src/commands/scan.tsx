@@ -83,8 +83,19 @@ export function ScanCommand({ includeSensitive = false }: ScanCommandProps) {
   useInput((input, key) => {
     if (phase === "review" && key.return) {
       setPhase("naming");
+    } else if (phase === "review" && (input.toLowerCase() === "q" || key.escape)) {
+      setPhase("cancelled");
+    } else if (phase === "naming" && (input.toLowerCase() === "q" || key.escape)) {
+      setPhase("cancelled");
     }
   });
+
+  React.useEffect(() => {
+    if (phase === "cancelled") {
+      const timer = setTimeout(() => process.exit(0), 100);
+      return () => clearTimeout(timer);
+    }
+  }, [phase]);
 
   if (error) {
     return (
@@ -170,7 +181,7 @@ export function ScanCommand({ includeSensitive = false }: ScanCommandProps) {
 
         {!isScanning && (
           <Box marginTop={1}>
-            <Text dimColor>Press Enter to save...</Text>
+            <Text dimColor>Press Enter to save, or Q to exit</Text>
           </Box>
         )}
       </Box>

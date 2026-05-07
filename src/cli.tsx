@@ -5,6 +5,7 @@ import meow from "meow";
 import { ScanCommand } from "./commands/scan.js";
 import { ListCommand } from "./commands/list.js";
 import { DeleteCommand } from "./commands/delete.js";
+import { InitCommand } from "./commands/init.js";
 import { DefaultCommand } from "./commands/default.js";
 
 const cli = meow(
@@ -15,6 +16,7 @@ const cli = meow(
   Commands
     scan     Scan project for env vars
     list     List stored env vars for this project
+    init     Pull variables from a saved project into this directory
     delete   Delete a project by name or ID
 
   Options
@@ -44,6 +46,9 @@ switch (command) {
     break;
   case "list":
     render(<ListCommand showValues={cli.flags.showValues} />);
+    break;
+  case "init":
+    render(<InitCommand />);
     break;
   case "delete":
     render(<DeleteCommand />);
