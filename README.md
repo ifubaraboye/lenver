@@ -102,36 +102,6 @@ Projects are identified by:
 
 This gives each project a stable, deterministic ID.
 
-### Storage
-
-All data lives locally in `~/.config/lenver/projects/<id>.json`:
-
-```json
-{
-  "id": "0bdc62c1ba8301ac",
-  "name": "dinexpress",
-  "cwd": "/home/oribi/Desktop/dev/dinexpress",
-  "lastScanned": "2026-05-06T10:59:31.825Z",
-  "vars": {
-    "DATABASE_URL": {
-      "value": "postgres://localhost:5432/db",
-      "sources": [".env", ".env.local"],
-      "referencedIn": [],
-      "isSensitive": false
-    },
-    "SECRET_TOKEN": {
-      "value": null,
-      "sources": [".env.production"],
-      "referencedIn": [],
-      "isSensitive": true
-    }
-  },
-  "unresolvedRefs": []
-}
-```
-
-Values from sensitive-tier files (`.env.production`, `.env.staging`) are stored as `null` by default. Use `--include-sensitive` to override.
-
 ## Tech Stack
 
 - **Runtime**: Bun / Node.js
